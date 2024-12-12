@@ -1,0 +1,89 @@
+# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-go
+
+name: test
+
+on: 
+  pull_request:
+    paths-ignore:
+      - 'README.md'
+  push:
+    paths-ignore:
+      - 'README.md'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version-file: 'go.mod'
+        cache: true
+
+    - name: Install dependencies
+      run: go get .
+
+    - name: Build
+      run: go build -v ./...
+
+    - name: Lint
+      uses: golangci/golangci-lint-action@v6
+      with:
+        version: latest
+
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version-file: 'go.mod'
+        cache: true
+
+    - name: Set up terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_wrapper: false
+    
+    - run: make generate
+
+    - name: git diff
+      run: |
+        git diff --compact-summary --exit-code || \
+          (echo; echo "Unexpected difference in directories after code generation. Run 'make generate' command and commit."; exit 1)
+  
+  # test:
+  #   name: Acceptance Tests
+  #   needs: build
+  #   runs-on: ubuntu-latest
+  #   strategy:
+  #     fail-fast: false
+  #   steps:
+  #   - uses: actions/checkout@v4
+
+  #   - name: Set up Go
+  #     uses: actions/setup-go@v5
+  #     with:
+  #       go-version-file: 'go.mod'
+  #       cache: true
+
+  #   - name: Set up terraform
+  #     uses: hashicorp/setup-terraform@v3
+  #     with:
+  #       terraform_wrapper: false
+    
+  #   - name: Install dependencies
+  #     run: go get .
+
+  #   - name: Test
+  #     env:
+  #       TF_ACC: '1'
+  #     run: go test -v -cover ./internal/provider/
